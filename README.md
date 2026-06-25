@@ -1,56 +1,60 @@
 # liroah-ai
 
-`liroah-ai` is a secondary development project based on the open source [Pi Agent Harness](https://github.com/earendil-works/pi-mono). It keeps the core Pi agent experience as the baseline while extending the system for Liroah model gateway integration and coding-agent capability research.
+`liroah-ai` 是基于开源项目 [Pi Agent Harness](https://github.com/earendil-works/pi-mono) 的二次开发版本。项目以保留 Pi 原有 Agent 核心体验为前提，围绕 `liroah-api` 聚合网关适配和 coding agent 能力增强继续演进。
 
-## Project Positioning
+## 项目定位
 
-The project has two main directions.
+`liroah-ai` 不是简单改名版本，而是在 Pi 的基础上增加面向模型网关治理和 Agent 框架优化的二开能力。
 
-### liroah-api Gateway Adaptation
+项目主线包括两个方向。
 
-`liroah-ai` adapts Pi to the `liroah-api` aggregation gateway. The goal is to provide unified model access and gateway governance without leaking gateway details into the core agent workflow.
+### liroah-api 聚合网关适配
 
-Expected capabilities include:
+`liroah-ai` 将适配 `liroah-api` 聚合网关，在不改变核心 Agent 使用体验的前提下，实现统一模型接入与网关治理。
 
-- Unified model access across upstream providers.
-- Gateway-side authentication, quota, rate limit, and cost control.
-- Model routing, fallback, retry, and degradation policies.
-- Provider compatibility while preserving Pi's existing agent interaction model.
+该方向关注：
 
-### Harness Engineering
+- 统一接入不同上游模型与模型供应商。
+- 支持网关侧认证、配额、限流和成本统计。
+- 支持模型路由、重试、降级与 fallback 策略。
+- 避免将网关差异泄漏到 Agent 核心逻辑中。
+- 保持 Pi 既有 coding agent 交互方式和工作流稳定。
 
-`liroah-ai` keeps the base model unchanged and focuses on improving coding ability through agent framework work.
+### Harness 工程
 
-The harness direction includes:
+`liroah-ai` 将建设 harness 工程，用于优化 agent 框架本身。在不替换基座模型的前提下，通过工程策略增强 coding 能力。
 
-- Better context organization for repository-level coding tasks.
-- More reliable tool-use strategies for shell, file editing, tests, and review.
-- Task decomposition and execution feedback loops.
-- Reusable experiment infrastructure for coding-agent behavior.
+该方向关注：
 
-## Supporting Evaluation System
+- 优化仓库级 coding 任务的上下文组织方式。
+- 改进 shell、文件编辑、测试、代码审查等工具调用策略。
+- 建立任务分解、执行反馈和结果复盘机制。
+- 沉淀可复用的 agent 编排、实验和验证能力。
+- 在框架层提升稳定性、可控性和可解释性。
 
-Evaluation is an engineering support capability, not the main product direction. It should be used to verify whether gateway adaptation, harness changes, and coding-agent optimizations actually improve behavior.
+## 评测体系
 
-The evaluation system should cover:
+评测体系是工程保障能力，不作为项目主线卖点。它用于验证网关适配、harness 改造和 coding 能力优化是否真的产生效果。
 
-- Coding task regressions for bug fixes, edits, reviews, and test updates.
-- Comparison across prompts, model routes, and tool strategies.
-- Repeatable benchmark cases for harness experiments.
-- Regression checks that protect the original Pi agent experience.
+评测体系应覆盖：
 
-## Monorepo Packages
+- bug 修复、代码编辑、测试补充、代码审查等 coding 任务回归。
+- 不同 prompt、模型路由和工具策略的对比实验。
+- harness 优化前后的可重复 benchmark。
+- 对 Pi 原有 Agent 体验的回归保护。
+
+## Monorepo 包结构
 
 | Package | Description |
 |---------|-------------|
-| **[@earendil-works/pi-ai](packages/ai)** | Unified multi-provider LLM API layer |
-| **[@earendil-works/pi-agent-core](packages/agent)** | Agent runtime with tool calling and state management |
-| **[@earendil-works/pi-coding-agent](packages/coding-agent)** | Interactive coding-agent CLI |
-| **[@earendil-works/pi-tui](packages/tui)** | Terminal UI library with differential rendering |
+| **[@earendil-works/pi-ai](packages/ai)** | 统一多模型供应商 API 层 |
+| **[@earendil-works/pi-agent-core](packages/agent)** | Agent 运行时、工具调用与状态管理 |
+| **[@earendil-works/pi-coding-agent](packages/coding-agent)** | 交互式 coding agent CLI |
+| **[@earendil-works/pi-tui](packages/tui)** | 支持差分渲染的终端 UI 库 |
 
-Package names may still contain upstream Pi naming while the secondary development work is in progress.
+当前部分包名仍保留上游 Pi 命名。二开过程中会根据实际发布策略逐步调整。
 
-## Development
+## 开发命令
 
 ```bash
 npm install --ignore-scripts
@@ -59,18 +63,18 @@ npm run check
 ./pi-test.sh
 ```
 
-Notes:
+说明：
 
-- Run `npm run check` after code changes.
-- Use `./test.sh` for the non-e2e test suite.
-- Do not run full build or full test commands unless specifically needed.
+- 代码改动后运行 `npm run check`。
+- 非 e2e 测试使用 `./test.sh`。
+- 除非明确需要，不运行完整 build 或完整 test 命令。
 
-## Upstream
+## 上游项目
 
-This project is derived from Pi Agent Harness. Upstream documentation and design context remain useful for understanding the original runtime, package layout, and agent behavior.
+本项目二开自 Pi Agent Harness。上游文档和设计仍可用于理解原始运行时、包结构和 Agent 行为。
 
-- Website: <https://pi.dev>
-- Upstream repository: <https://github.com/earendil-works/pi-mono>
+- 官网：<https://pi.dev>
+- 上游仓库：<https://github.com/earendil-works/pi-mono>
 
 ## License
 
