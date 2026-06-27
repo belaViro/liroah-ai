@@ -172,6 +172,43 @@ class ExpandableText extends Text implements Expandable {
 	}
 }
 
+// ============================================================
+// [新增] 并排布局工具：将左右两组文字按行拼成横向并排
+//  left/right: 字符串数组，每行一个元素
+//  gap: 左右之间的空格数（默认3）
+// ============================================================
+function sideBySide(left: string[], right: string[], gap = 3): string[] {
+	const maxLines = Math.max(left.length, right.length);
+	// 计算左侧最宽行的可见宽度
+	const leftWidth = left.reduce((max, l) => Math.max(max, visibleWidth(l)), 0);
+	const result: string[] = [];
+	for (let i = 0; i < maxLines; i++) {
+		const l = i < left.length ? left[i] : "";
+		const r = i < right.length ? right[i] : "";
+		const pad = Math.max(0, leftWidth - visibleWidth(l) + gap);
+		result.push(l + " ".repeat(pad) + r);
+	}
+	return result;
+}
+
+// ============================================================
+// [新增] 边框绘制工具：给一组文字加上 ┌─┐└─┘ 框线
+//  lines: 要加框的文字各行
+//  color: 边框颜色的渲染函数
+// ============================================================
+function boxLines(lines: string[], color: (s: string) => string): string[] {
+	const contentWidth = lines.reduce((max, l) => Math.max(max, visibleWidth(l)), 0);
+	const h = "─".repeat(contentWidth);
+	return [
+		color("┌" + h + "┐"),
+		...lines.map((l) => {
+			const pad = contentWidth - visibleWidth(l);
+			return color("│ ") + l + " ".repeat(pad) + color(" │");
+		}),
+		color("└" + h + "┘"),
+	];
+}
+
 type CompactionQueuedMessage = {
 	text: string;
 	mode: "steer" | "followUp";
@@ -659,8 +696,17 @@ export class InteractiveMode {
 		await this.themeController.applyFromSettings();
 
 		// Add header with keybindings from config (unless silenced)
+
 		if (this.options.verbose || !this.settingsManager.getQuietStartup()) {
-			const logo = theme.bold(theme.fg("accent", APP_NAME)) + theme.fg("dim", ` v${this.version}`);
+			// const logo = theme.bold(theme.fg("accent", APP_NAME)) + theme.fg("dim", ` v${this.version}`);
+			const LOGO_LINES = [
+				"  █     ██   ████  ███  ███  █  █",
+				"  █     █    █  █  █  █ █  █ █  █",
+				"  █     █    ███   █  █ ████ ████",
+				"  ████  ████ █  █  ███  █  █ █  █",
+			];
+			const logo =
+				theme.bold(chalk.hex("#cc3333")(LOGO_LINES.join("\n"))) + "\n" + theme.fg("dim", `v${this.version}`);
 
 			// Build startup instructions using keybinding hint helpers
 			const hint = (keybinding: AppKeybinding, description: string) => keyHint(keybinding, description);
@@ -699,8 +745,9 @@ export class InteractiveMode {
 			);
 			const onboarding = theme.fg(
 				"dim",
-				`Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.`,
+				`LIROAH can explain its own features and look up its docs. Ask it how to use or extend LIROAH.`,
 			);
+			// [原来的] 纵向排列版本（logo在上，文字在下，无边框）
 			this.builtInHeader = new ExpandableText(
 				() => `${logo}\n${compactInstructions}\n${compactOnboarding}\n\n${onboarding}`,
 				() => `${logo}\n${expandedInstructions}\n\n${onboarding}`,
@@ -708,6 +755,34 @@ export class InteractiveMode {
 				1,
 				0,
 			);
+
+			// ============================================================
+			// [改版] logo在左、文字在右，并用 ┌─┐└─┘ 框线框起来（效果不好，暂时不用）
+			// ============================================================
+			// this.builtInHeader = new ExpandableText(
+			// 	() => {
+			// 		const rightLines = [
+			// 			theme.bold(chalk.hex("#cc3333")(APP_NAME)) + theme.fg("dim", ` v${this.version}`),
+			// 			compactInstructions,
+			// 			compactOnboarding,
+			// 			onboarding,
+			// 		];
+			// 		const combined = sideBySide(LOGO_LINES, rightLines);
+			// 		return boxLines(combined, (s) => theme.fg("border", s)).join("\n");
+			// 	},
+			// 	() => {
+			// 		const rightLines = [
+			// 			theme.bold(chalk.hex("#cc3333")(APP_NAME)) + theme.fg("dim", ` v${this.version}`),
+			// 			expandedInstructions,
+			// 		];
+			// 		const combined = sideBySide(LOGO_LINES, rightLines);
+			// 		const box = boxLines(combined, (s) => theme.fg("border", s)).join("\n");
+			// 		return box + "\n\n" + onboarding;
+			// 	},
+			// 	this.getStartupExpansionState(),
+			// 	1,
+			// 	0,
+			// );
 
 			// Setup UI layout
 			this.headerContainer.addChild(new Spacer(1));
@@ -1330,7 +1405,8 @@ export class InteractiveMode {
 		force?: boolean;
 		showDiagnosticsWhenQuiet?: boolean;
 	}): void {
-		const showListing = options?.force || this.options.verbose || !this.settingsManager.getQuietStartup();
+		// const showListing = options?.force || this.options.verbose || !this.settingsManager.getQuietStartup();
+		const showListing = false;
 		const showDiagnostics = showListing || options?.showDiagnosticsWhenQuiet === true;
 		if (!showListing && !showDiagnostics) {
 			return;
