@@ -181,7 +181,27 @@ class ExpandableText extends Text implements Expandable {
 type StartupLogoVariant = "nyancat" | "liroah";
 
 const STARTUP_LOGO_VARIANT: StartupLogoVariant = "nyancat";
-const STARTUP_LOGO_ANIMATION_INTERVAL_MS = 220;
+const DEFAULT_STARTUP_LOGO_ANIMATION_INTERVAL_MS = 220;
+const MIN_STARTUP_LOGO_ANIMATION_INTERVAL_MS = 40;
+const MAX_STARTUP_LOGO_ANIMATION_INTERVAL_MS = 1000;
+const STARTUP_LOGO_ANIMATION_INTERVAL_ENV = "PI_STARTUP_LOGO_INTERVAL_MS";
+
+function getStartupLogoAnimationIntervalMs(): number {
+	const rawIntervalMs = process.env[STARTUP_LOGO_ANIMATION_INTERVAL_ENV];
+	if (rawIntervalMs === undefined || rawIntervalMs.trim() === "") {
+		return DEFAULT_STARTUP_LOGO_ANIMATION_INTERVAL_MS;
+	}
+
+	const intervalMs = Number(rawIntervalMs);
+	if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
+		return DEFAULT_STARTUP_LOGO_ANIMATION_INTERVAL_MS;
+	}
+
+	return Math.max(
+		MIN_STARTUP_LOGO_ANIMATION_INTERVAL_MS,
+		Math.min(MAX_STARTUP_LOGO_ANIMATION_INTERVAL_MS, Math.floor(intervalMs)),
+	);
+}
 
 // [原方案] LIROAH 块字 Logo，作为明确的回退边界保留。
 const LIROAH_LOGO_LINES = [
@@ -455,7 +475,7 @@ class AnimatedStartupHeader extends Text implements Expandable {
 			this.frameIndex = (this.frameIndex + 1) % NYANCAT_LOGO_FRAMES.length;
 			this.setExpanded(this.expanded);
 			this.requestRender();
-		}, STARTUP_LOGO_ANIMATION_INTERVAL_MS);
+		}, getStartupLogoAnimationIntervalMs());
 	}
 
 	setExpanded(expanded: boolean): void {
