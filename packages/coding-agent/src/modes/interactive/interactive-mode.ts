@@ -182,7 +182,7 @@ type StartupLogoVariant = "nyancat" | "liroah";
 
 const STARTUP_LOGO_VARIANT: StartupLogoVariant = "nyancat";
 const DEFAULT_STARTUP_LOGO_ANIMATION_INTERVAL_MS = 220;
-const MIN_STARTUP_LOGO_ANIMATION_INTERVAL_MS = 40;
+const MIN_STARTUP_LOGO_ANIMATION_INTERVAL_MS = 10;
 const MAX_STARTUP_LOGO_ANIMATION_INTERVAL_MS = 1000;
 const STARTUP_LOGO_ANIMATION_INTERVAL_ENV = "PI_STARTUP_LOGO_INTERVAL_MS";
 
@@ -215,6 +215,7 @@ const LIROAH_LOGO_LINES = [
 // 这里保留核心区域的完整列，再用上下半块压缩高度，避免动画缺失关键像素。
 const NYANCAT_LOGO_FRAMES = [
 	[
+		"\n",
 		",,>>>>>>>>,,,,,,,,>>>>>>'@@@@@@@@@@@@@@@'",
 		">>>>>>>>>>>>>>>>>>>>>>>'@@@$$$$$$$$$$$@@@'",
 		">>&&&&&&&&>>>>>>>>&&&&&'@@$$$$$-$$-$$$$@@'",
