@@ -173,10 +173,323 @@ class ExpandableText extends Text implements Expandable {
 }
 
 // ============================================================
+// 启动界面 Logo 边界：
+// - 这里只负责生成启动 Header 的“大标题”字符串和帧刷新。
+// - 不处理快捷键说明、onboarding 文案、quiet startup、扩展 setHeader 等流程。
+// - 原 LIROAH 块字方案保留在 renderLiroahStartupLogo，回退时只改 STARTUP_LOGO_VARIANT。
+// ============================================================
+type StartupLogoVariant = "nyancat" | "liroah";
+
+const STARTUP_LOGO_VARIANT: StartupLogoVariant = "nyancat";
+const STARTUP_LOGO_ANIMATION_INTERVAL_MS = 220;
+
+// [原方案] LIROAH 块字 Logo，作为明确的回退边界保留。
+const LIROAH_LOGO_LINES = [
+	"  █     ██   ████  ███  ███  █  █",
+	"  █     █    █  █  █  █ █  █ █  █",
+	"  █     █    ███   █  █ ████ ████",
+	"  ████  ████ █  █  ███  █  █ █  █",
+];
+
+// [新方案] 小型动态 nyancat Logo，来源于参考项目 src/animation.c 的 frame0-frame5。
+// 这里保留核心区域的完整列，再用上下半块压缩高度，避免动画缺失关键像素。
+const NYANCAT_LOGO_FRAMES = [
+	[
+		",,>>>>>>>>,,,,,,,,>>>>>>'@@@@@@@@@@@@@@@'",
+		">>>>>>>>>>>>>>>>>>>>>>>'@@@$$$$$$$$$$$@@@'",
+		">>&&&&&&&&>>>>>>>>&&&&&'@@$$$$$-$$-$$$$@@'",
+		"&&&&&&&&&&&&&&&&&&&&&&&'@$$-$$$$$$''$-$$@',''",
+		"&&&&&&&&&&&&&&&&&&&&&&&'@$$$$$$$$'**'$$$@''**'",
+		"&&++++++++&&&&&&&&'''++'@$$$$$-$$'***$$$@'***'",
+		"++++++++++++++++++**''+'@$$$$$$$$'***''''****'",
+		"++++++++++++++++++'**'''@$$$$$$$$'***********'",
+		"++########++++++++''**''@$$$$$$-'*************'",
+		"###################''**'@$-$$$$$'***.'****.'**'",
+		"####################''''@$$$$$$$'***''**'*''**'",
+		"##========########====''@@$$$-$$'*%%********%%'",
+		"======================='@@@$$$$$$'***''''''**'",
+		"==;;;;;;;;.=======;;;;'''@@@@@@@@@'*********'",
+		";;;;;;;;;;;;;;;;;;;;;'***'''''''''''''''''''",
+		";;;;;;;;;;;;;;;;;;;;;'**'','*',,,,,'*','**'",
+		";;,,,,,.,,;;;.;;;;,,,'''',,'',,,,,,,'',,''",
+	],
+	[
+		",,>>>>>>>>,,,,,,,,>>>>>>'@@@@@@@@@@@@@@@'",
+		">>>>>>>>>>>>>>>>>>>>>>>'@@@$$$$$$$$$$$@@@'",
+		">>&&&&&&&&>>>>>>>>&&&&&'@@$$$$$-$$-$$$$@@'",
+		"&&&&&&&&&&&&&&&&&&&&&&&'@$$-$$$$$$$''-$$@',,''",
+		"&&&&&&&&&&&&&&&&&&&&&&&'@$$$$$$$$$'**'$$@','**'",
+		"&&++++++++&&&&&&&&+++++'@$$$$$-$$$'***$$@''***'",
+		"+++++++++++++++++++'+++'@$$$$$$$$$'***''''****'",
+		"++++++++++++++++++'*'++'@$$$$$$$$$'***********'",
+		"++########++++++++'*''''@$$$$$$-$'*************",
+		"###################****'@$-$$$$$$'***.'****.'**",
+		"###################''**'@$$$$$$$$'***''**'*''**",
+		"##========########==='''@@$$$-$$$'*%%********%%",
+		"======================='@@@$$$$$$$'***''''''**'",
+		"==;;;;;;;;========;;;;;''@@@@@@@@@@'*********'",
+		";;;;;;;;;;;;;;;;;;;;;;'**''''''''''''''''''''",
+		";;;;;;;;;;;;;;;;;;;;;;'**','*',,,,,,**','**'",
+		";;,,,.,,,,;;;;;;;;,,,,''',,,'',,,,,,''',,'''",
+	],
+	[
+		">>,,,,,,,>>>>>>>>,,,,,,,,'''''''''''''''",
+		">>>>>>>>>>>>>>>>>>>>>>>>'@@@@@@@@@@@@@@@'",
+		"&&>>>>>>>&&&&&&&&>>>>>>'@@@$$$$$$$$$$$@@@'",
+		"&&&&&&&&&&&&&&&&&&&&&&&'@@$$$$$-$$-$$$$@@'",
+		"&&&&&&&&&&&&&&&&&&&&&&&'@$$-$$$$$$$''-$$@',,''",
+		"++&&&&&&&++++++++&&&&&&'@$$$$$$$$$'**'$$@','**'",
+		"+++++++++++++++++++++++'@$$$$$-$$$'***$$@''***'",
+		"+++++++++++++++++++++++'@$$$$$$$$$'***''''****'",
+		"##+++++++########++++++'@$$$$$$$$$'***********'",
+		"######################''@$$$$$$-$'*************",
+		"###################'''''@$-$$$$$$'***.'****.'**",
+		"==#######========#'****'@$$$$$$$$'***''**'*''**",
+		"==================='''='@@$$$-$$$'*%%********%%",
+		";;=======;;;;;;;;======'@@@$$$$$$$'***''''''**'",
+		";;;;;;;;;;;;;;;;;;;;;;;''@@@@@@@@@@'*********'",
+		";.;;;;;;;;;;;;;;;;;;;;;'*''''''''''''''''''''",
+		".,.;;;;;;,,,,,,,,;;;;;;'**',**',,,,,,**','**'",
+	],
+	[
+		">>,,,,,,,>>>>>>>>,,,,,,,,'''''''''''''''",
+		">>>>>>>>>>>>>>>>>>>>>>>>'@@@@@@@@@@@@@@@'",
+		"&&>>>>>>>&&&&&&&&>>>>>>'@@@$$$$$$$$$$$@@@'",
+		"&&&&&&&&&&&&&&&&&&&&&&&'@@$$$$$-$$-$$$$@@'",
+		"&&&&&&&&&&&&&&&&&&&&&&&'@$$-$$$$$$$''-$$@',,''",
+		"++&&&&&&&++++++++&&&&&&'@$$$$$$$$$'**'$$@','**'",
+		"+++++++++++++++++++++++'@$$$$$-$$$'***$$@''***'",
+		"+++++++++++++++++++++++'@$$$$$$$$$'***''''****'",
+		"##+++++++########++++++'@$$$$$$$$$'***********'",
+		"#####################'''@$$$$$$-$'*************",
+		"###################''**'@$-$$$$$$'***.'****.'**",
+		"==#######========##****'@$$$$$$$$'***''**'*''**",
+		"=================='*'=='@@$$$-$$$'*%%********%%",
+		";;=======;;;;;;;;=='==='@@@$$$$$$$'***''''''**'",
+		";;;;;;;;;;;;;;;;;;;;;;;''@@@@@@@@@@'*********'",
+		";;;;;;;;;;;;;;;;;;;;;;'**''''''''''''''''''''",
+		",,;;;;;;;,,,,,,,,;;;;;'**','*',,,,,,'*','**'",
+	],
+	[
+		",,>>>>>>>>,,,,,,,,>>>>>>>'''''''''''''''",
+		">>>>>>>>>>>>>>>>>>>>>>>>'@@@@@@@@@@@@@@@'",
+		">>&&&&&&&&>>>>>>>>&&&&&'@@@$$$$$$$$$$$@@@'",
+		"&&&&&&&&&&&&&&&&&&&&&&&'@@$$$$$-$$-$$$$@@'",
+		"&&&&&&&&&&&&&&&&&&&&&&&'@$$-$$$$$$''$-$$@',''",
+		"&&++++++++&&&&&&&&+++++'@$$$$$$$$'**'$$$@''**'",
+		"+++++++++++++++++++++++'@$$$$$-$$'***$$$@'***'",
+		"++++++++++++++++++'''++'@$$$$$$$$'***''''****'",
+		"++########+++++++'**''''@$$$$$$$$'***********'",
+		"#################'****''@$$$$$$-'*************'",
+		"##################''''*'@$-$$$$$'***.'****.'**'",
+		"##========########==='''@$$$$$$$'***''**'*''**'",
+		"======================='@@$$$-$$'*%%********%%'",
+		"==;;;;;;;;========;;;;''@@@$$$$$$'***''''''**'",
+		";;;;;;;;;;;;;;;;;;;;;''''@@@@@@@@@'*********'",
+		";;;;;;;;;;;;;;;;;;;;'***''''''''''''''''''''",
+		";;,,,,,,,,;;;;;;;;,,'**','**,,,,,,'**,'**'",
+	],
+	[
+		",,>>>>>>>>,,,,,,,,>>>>>>>'''''''''''''''",
+		">>>>>>>>>>>>>>>>>>>>>>>>'@@@@@@@@@@@@@@@'",
+		">>&&&&&&&&>>>>>>>>&&&&&'@@@$$$$$$$$$$$@@@'",
+		"&&&&&&&&&&&&&&&&&&&&&&&'@@$$$$$-$$''$$$@@',''",
+		"&&&&&&&&&&&&&&&&&&&&&&&'@$$-$$$$$'**'-$$@''**'",
+		"&&++++++++&&&&&&&&+++++'@$$$$$$$$'***$$$@'***'",
+		"+++++++++++++++++++'+++'@$$$$$-$$'***''''****'",
+		"++++++++++++++++++'*'++'@$$$$$$$$'***********'",
+		"++########++++++++'*''''@$$$$$$$'*************'",
+		"###################****'@$$$$$$-'***.'****.'**'",
+		"###################''**'@$-$$$$$'***''**'*''**'",
+		"##========########==='''@$$$$$$$'*%%********%%'",
+		"======================='@@$$$-$$$'***''''''**'",
+		"==;;;;;;;;========;;;;''@@@$$$$$$$'*********'",
+		";;;;;;;;;;;;;;;;;;;;;'*''@@@@@@@@@@'''''''''",
+		";;;;;;;;;;;;;;;;;;;;'***''''''''''''''''*'",
+		";;,,,,,,,,;;;;;;;;,,'**','**,,,,,,'**,'**'",
+	],
+] as const;
+
+const NYANCAT_LOGO_WIDTH = Math.max(...NYANCAT_LOGO_FRAMES.flatMap((frame) => frame.map((line) => line.length)));
+
+const NYANCAT_PIXEL_COLORS = {
+	".": "#ffffff",
+	"'": "#333333",
+	"@": "#ffd198",
+	$: "#ffa9ff",
+	"-": "#ff4c98",
+	">": "#ff1900",
+	"&": "#ff9a00",
+	"+": "#fff000",
+	"#": "#28dc00",
+	"=": "#0090ff",
+	";": "#6844ff",
+	"*": "#999999",
+	"%": "#ffa398",
+} as const;
+
+function renderStartupLogo(version: string, frameIndex = 0): string {
+	switch (STARTUP_LOGO_VARIANT) {
+		case "nyancat":
+			return renderNyanStartupLogo(version, frameIndex);
+		case "liroah":
+			return renderLiroahStartupLogo(version);
+	}
+}
+
+function renderLiroahStartupLogo(version: string): string {
+	return `${theme.bold(chalk.hex("#cc3333")(LIROAH_LOGO_LINES.join("\n")))}\n${theme.fg("dim", `v${version}`)}`;
+}
+
+function renderNyanStartupLogo(version: string, frameIndex: number): string {
+	const frame = NYANCAT_LOGO_FRAMES[frameIndex % NYANCAT_LOGO_FRAMES.length];
+	return `${renderNyanFrame(frame)}\n${theme.fg("dim", `v${version}`)}`;
+}
+
+function renderNyanFrame(frame: readonly string[]): string {
+	const lines: string[] = [];
+	for (let row = 0; row < frame.length; row += 2) {
+		const top = frame[row] ?? "";
+		const bottom = frame[row + 1] ?? "";
+		let line = "";
+		for (let col = 0; col < NYANCAT_LOGO_WIDTH; col++) {
+			line += renderNyanCell(top[col] ?? ",", bottom[col] ?? ",");
+		}
+		lines.push(line);
+	}
+	return lines.join("\n");
+}
+
+function renderNyanCell(topPixel: string, bottomPixel: string): string {
+	const topColor = getNyanPixelColor(topPixel);
+	const bottomColor = getNyanPixelColor(bottomPixel);
+	if (topColor && bottomColor) {
+		return chalk.hex(topColor).bgHex(bottomColor)("▀");
+	}
+	if (topColor) {
+		return chalk.hex(topColor)("▀");
+	}
+	if (bottomColor) {
+		return chalk.bgHex(bottomColor)(" ");
+	}
+	return " ";
+}
+
+function getNyanPixelColor(pixel: string): string | undefined {
+	if (pixel === ",") {
+		return undefined;
+	}
+	return NYANCAT_PIXEL_COLORS[pixel as keyof typeof NYANCAT_PIXEL_COLORS];
+}
+
+function centerAnsiLine(line: string, width: number): string {
+	const trimmedLine = line.trimEnd();
+	const lineWidth = visibleWidth(trimmedLine);
+	if (lineWidth >= width) {
+		return line;
+	}
+	return `${" ".repeat(Math.floor((width - lineWidth) / 2))}${trimmedLine}`;
+}
+
+function disposeComponent(component: Component | undefined): void {
+	if (!component || !("dispose" in component)) {
+		return;
+	}
+	const dispose = component.dispose;
+	if (typeof dispose === "function") {
+		dispose.call(component);
+	}
+}
+
+function pauseComponent(component: Component | undefined): void {
+	if (!component || !("pause" in component)) {
+		return;
+	}
+	const pause = component.pause;
+	if (typeof pause === "function") {
+		pause.call(component);
+	}
+}
+
+function resumeComponent(component: Component | undefined): void {
+	if (!component || !("resume" in component)) {
+		return;
+	}
+	const resume = component.resume;
+	if (typeof resume === "function") {
+		resume.call(component);
+	}
+}
+
+class AnimatedStartupHeader extends Text implements Expandable {
+	private frameIndex = 0;
+	private expanded: boolean;
+	private timer: ReturnType<typeof setInterval> | undefined;
+	private readonly getCollapsedText: (frameIndex: number) => string;
+	private readonly getExpandedText: (frameIndex: number) => string;
+	private readonly requestRender: () => void;
+
+	constructor(
+		getCollapsedText: (frameIndex: number) => string,
+		getExpandedText: (frameIndex: number) => string,
+		requestRender: () => void,
+		expanded = false,
+		paddingX = 0,
+		paddingY = 0,
+	) {
+		super("", paddingX, paddingY);
+		this.getCollapsedText = getCollapsedText;
+		this.getExpandedText = getExpandedText;
+		this.requestRender = requestRender;
+		this.expanded = expanded;
+		this.setExpanded(expanded);
+		this.resume();
+	}
+
+	private startAnimation(): void {
+		if (this.timer || STARTUP_LOGO_VARIANT !== "nyancat" || NYANCAT_LOGO_FRAMES.length <= 1) {
+			return;
+		}
+
+		this.timer = setInterval(() => {
+			this.frameIndex = (this.frameIndex + 1) % NYANCAT_LOGO_FRAMES.length;
+			this.setExpanded(this.expanded);
+			this.requestRender();
+		}, STARTUP_LOGO_ANIMATION_INTERVAL_MS);
+	}
+
+	setExpanded(expanded: boolean): void {
+		this.expanded = expanded;
+		this.setText(expanded ? this.getExpandedText(this.frameIndex) : this.getCollapsedText(this.frameIndex));
+	}
+
+	render(width: number): string[] {
+		return super.render(width).map((line) => centerAnsiLine(line, width));
+	}
+
+	pause(): void {
+		if (!this.timer) {
+			return;
+		}
+		clearInterval(this.timer);
+		this.timer = undefined;
+	}
+
+	resume(): void {
+		this.startAnimation();
+	}
+
+	dispose(): void {
+		this.pause();
+	}
+}
+
+// ============================================================
 // [新增] 并排布局工具：将左右两组文字按行拼成横向并排
 //  left/right: 字符串数组，每行一个元素
 //  gap: 左右之间的空格数（默认3）
 // ============================================================
+// biome-ignore lint/correctness/noUnusedVariables: 保留的实验布局方案暂时不参与当前启动流程，边界见下方注释块。
 function sideBySide(left: string[], right: string[], gap = 3): string[] {
 	const maxLines = Math.max(left.length, right.length);
 	// 计算左侧最宽行的可见宽度
@@ -196,16 +509,17 @@ function sideBySide(left: string[], right: string[], gap = 3): string[] {
 //  lines: 要加框的文字各行
 //  color: 边框颜色的渲染函数
 // ============================================================
+// biome-ignore lint/correctness/noUnusedVariables: 保留的实验布局方案暂时不参与当前启动流程，边界见下方注释块。
 function boxLines(lines: string[], color: (s: string) => string): string[] {
 	const contentWidth = lines.reduce((max, l) => Math.max(max, visibleWidth(l)), 0);
 	const h = "─".repeat(contentWidth);
 	return [
-		color("┌" + h + "┐"),
+		color(`┌${h}┐`),
 		...lines.map((l) => {
 			const pad = contentWidth - visibleWidth(l);
 			return color("│ ") + l + " ".repeat(pad) + color(" │");
 		}),
-		color("└" + h + "┘"),
+		color(`└${h}┘`),
 	];
 }
 
@@ -698,15 +1012,7 @@ export class InteractiveMode {
 		// Add header with keybindings from config (unless silenced)
 
 		if (this.options.verbose || !this.settingsManager.getQuietStartup()) {
-			// const logo = theme.bold(theme.fg("accent", APP_NAME)) + theme.fg("dim", ` v${this.version}`);
-			const LOGO_LINES = [
-				"  █     ██   ████  ███  ███  █  █",
-				"  █     █    █  █  █  █ █  █ █  █",
-				"  █     █    ███   █  █ ████ ████",
-				"  ████  ████ █  █  ███  █  █ █  █",
-			];
-			const logo =
-				theme.bold(chalk.hex("#cc3333")(LOGO_LINES.join("\n"))) + "\n" + theme.fg("dim", `v${this.version}`);
+			const renderLogo = (frameIndex = 0) => renderStartupLogo(this.version, frameIndex);
 
 			// Build startup instructions using keybinding hint helpers
 			const hint = (keybinding: AppKeybinding, description: string) => keyHint(keybinding, description);
@@ -747,17 +1053,19 @@ export class InteractiveMode {
 				"dim",
 				`LIROAH can explain its own features and look up its docs. Ask it how to use or extend LIROAH.`,
 			);
-			// [原来的] 纵向排列版本（logo在上，文字在下，无边框）
-			this.builtInHeader = new ExpandableText(
-				() => `${logo}\n${compactInstructions}\n${compactOnboarding}\n\n${onboarding}`,
-				() => `${logo}\n${expandedInstructions}\n\n${onboarding}`,
+			// [原来的 Header 布局] 纵向排列（logo在上，文字在下，无边框），只替换 logo 内容，不改布局流程。
+			this.builtInHeader = new AnimatedStartupHeader(
+				(frameIndex) => `${renderLogo(frameIndex)}\n${compactInstructions}\n${compactOnboarding}\n\n${onboarding}`,
+				(frameIndex) => `${renderLogo(frameIndex)}\n${expandedInstructions}\n\n${onboarding}`,
+				() => this.ui.requestRender(),
 				this.getStartupExpansionState(),
 				1,
 				0,
 			);
 
 			// ============================================================
-			// [改版] logo在左、文字在右，并用 ┌─┐└─┘ 框线框起来（效果不好，暂时不用）
+			// [保留的实验方案] logo在左、文字在右，并用 ┌─┐└─┘ 框线框起来（效果不好，暂时不用）
+			// 该实验方案仍使用 LIROAH_LOGO_LINES，不受 STARTUP_LOGO_VARIANT 影响。
 			// ============================================================
 			// this.builtInHeader = new ExpandableText(
 			// 	() => {
@@ -767,7 +1075,7 @@ export class InteractiveMode {
 			// 			compactOnboarding,
 			// 			onboarding,
 			// 		];
-			// 		const combined = sideBySide(LOGO_LINES, rightLines);
+			// 		const combined = sideBySide(LIROAH_LOGO_LINES, rightLines);
 			// 		return boxLines(combined, (s) => theme.fg("border", s)).join("\n");
 			// 	},
 			// 	() => {
@@ -775,7 +1083,7 @@ export class InteractiveMode {
 			// 			theme.bold(chalk.hex("#cc3333")(APP_NAME)) + theme.fg("dim", ` v${this.version}`),
 			// 			expandedInstructions,
 			// 		];
-			// 		const combined = sideBySide(LOGO_LINES, rightLines);
+			// 		const combined = sideBySide(LIROAH_LOGO_LINES, rightLines);
 			// 		const box = boxLines(combined, (s) => theme.fg("border", s)).join("\n");
 			// 		return box + "\n\n" + onboarding;
 			// 	},
@@ -2034,6 +2342,9 @@ export class InteractiveMode {
 		if (this.customHeader?.dispose) {
 			this.customHeader.dispose();
 		}
+		if (factory) {
+			pauseComponent(this.builtInHeader);
+		}
 
 		// Find the index of the current header in the header container
 		const currentHeader = this.customHeader || this.builtInHeader;
@@ -2054,6 +2365,7 @@ export class InteractiveMode {
 		} else {
 			// Restore built-in header
 			this.customHeader = undefined;
+			resumeComponent(this.builtInHeader);
 			if (isExpandable(this.builtInHeader)) {
 				this.builtInHeader.setExpanded(this.toolOutputExpanded);
 			}
@@ -5801,6 +6113,7 @@ export class InteractiveMode {
 			this.loadingAnimation.stop();
 			this.loadingAnimation = undefined;
 		}
+		disposeComponent(this.builtInHeader);
 		this.themeController.disableAutoSync();
 		this.clearExtensionTerminalInputListeners();
 		this.footer.dispose();

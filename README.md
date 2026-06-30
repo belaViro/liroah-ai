@@ -32,6 +32,24 @@
 - 沉淀可复用的 agent 编排、实验和验证能力。
 - 在框架层提升稳定性、可控性和可解释性。
 
+## 启动界面定制
+
+交互式 coding agent 的启动 Header 支持动态像素标题。当前默认使用参考自 [`klange/nyancat`](https://github.com/klange/nyancat) 的 ANSI 像素动画，替代原静态 `LIROAH` 大标题。
+
+实现集中在 `packages/coding-agent/src/modes/interactive/interactive-mode.ts` 的启动 Logo 边界区：
+
+- `STARTUP_LOGO_VARIANT` 控制当前标题方案，可在 `nyancat` 和 `liroah` 之间切换。
+- 原 `LIROAH` 块字方案保留在 `LIROAH_LOGO_LINES` 和 `renderLiroahStartupLogo`，作为明确回退路径。
+- `nyancat` 渲染使用完整列和上下半块字符压缩高度，避免动画帧切换时猫身像素缺失。
+- Header 渲染阶段会按终端宽度居中，并在扩展 Header 接管或程序退出时暂停/清理动画定时器。
+
+相关改动后建议运行：
+
+```bash
+npx biome check packages/coding-agent/src/modes/interactive/interactive-mode.ts
+npx tsgo --noEmit -p tsconfig.json
+./pi-test.ps1 --help
+```
 ## 评测体系
 
 评测体系是工程保障能力，不作为项目主线卖点。它用于验证网关适配、harness 改造和 coding 能力优化是否真的产生效果。
