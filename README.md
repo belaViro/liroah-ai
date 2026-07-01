@@ -1,6 +1,6 @@
 <h1 align="center">liroah-ai</h1>
 
-<p align="center">A LiRoah-branded coding-agent harness built on Pi Agent Harness.</p>
+<p align="center">基于 Pi Agent Harness 的 LiRoah 品牌 coding agent 框架。</p>
 
 <p align="center">
   <img alt="status" src="https://img.shields.io/badge/status-active-black?style=flat-square" />
@@ -8,128 +8,128 @@
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" />
 </p>
 
-`liroah-ai` is a second-stage development branch of [Pi Agent Harness](https://github.com/earendil-works/pi-mono). It keeps Pi's terminal-first coding agent core, while adding LiRoah-specific workflow polish, permission controls, Windows shell discovery, and future gateway-oriented harness work.
+`liroah-ai` 是 [Pi Agent Harness](https://github.com/earendil-works/pi-mono) 的二次开发分支。它保留 Pi 的终端优先 coding agent 核心，同时加入 LiRoah 相关的工作流打磨、权限控制、Windows shell 发现逻辑，以及面向网关的后续 harness 工作。
 
-> Current status: the coding-agent base and local interaction improvements are active. The `liroah-api` aggregation gateway adapter is still a roadmap item, not a completed integration.
+> 当前状态：coding-agent 基座和本地交互增强已经可用。`liroah-api` 聚合网关适配仍在路线图中，还不是完整集成。
 
-## Contents
+## 目录
 
-- [What It Is](#what-it-is)
-- [Implemented](#implemented)
-- [Roadmap](#roadmap)
-- [Quick Start](#quick-start)
-- [Runtime Controls](#runtime-controls)
-- [Windows Bash Discovery](#windows-bash-discovery)
-- [Customization Surface](#customization-surface)
-- [Repository Layout](#repository-layout)
-- [Development](#development)
-- [Upstream](#upstream)
-- [License](#license)
+- [项目是什么](#项目是什么)
+- [已实现](#已实现)
+- [路线图](#路线图)
+- [快速开始](#快速开始)
+- [运行时控制](#运行时控制)
+- [Windows Bash 发现](#windows-bash-发现)
+- [可定制入口](#可定制入口)
+- [仓库结构](#仓库结构)
+- [开发](#开发)
+- [上游](#上游)
+- [许可证](#许可证)
 
-## What It Is
+## 项目是什么
 
-`liroah-ai` is not only a rename of Pi. It is a harness-oriented fork for experimenting with coding-agent behavior while preserving Pi's core interaction model:
+`liroah-ai` 不只是 Pi 的改名版本。它是一个偏 harness 的分支，用来在保留 Pi 核心交互模型的前提下，试验和增强 coding-agent 行为：
 
-- terminal TUI first
-- persistent coding sessions
-- built-in `read`, `bash`, `edit`, `write`, `grep`, `find`, and `ls` tools
-- project instructions through `AGENTS.md`
-- local extensions, prompts, skills, and themes
-- model/provider flexibility inherited from Pi
+- 以终端 TUI 为第一入口
+- 持久化 coding 会话
+- 内置 `read`、`bash`、`edit`、`write`、`grep`、`find` 和 `ls` 工具
+- 通过 `AGENTS.md` 提供项目级指令
+- 支持本地扩展、提示词、skills 和主题
+- 继承 Pi 的模型与供应商灵活性
 
-The project direction is practical: improve the agent shell, file-editing, permission, prompt, and evaluation workflow before hiding those mechanics behind larger product abstractions.
+项目方向很直接：先把 agent 的 shell、文件编辑、权限、提示词和评测流程打磨好，再去做更高层的产品封装。
 
-## Implemented
+## 已实现
 
-| Area | Current Behavior |
-|------|------------------|
-| Coding agent base | Inherits Pi's interactive coding agent, session model, tool execution, prompt/template/skill loading, and TUI components. |
-| Tool permission gate | Project-local extension at `.pi/extensions/tool-permission-gate.ts` prompts before `bash`, `edit`, and `write` tool calls. It supports allow once, allow for session, and deny. |
-| Startup experience | Interactive startup header uses a moving ANSI pixel animation. It enters from the left, exits to the right, then returns to a centered static display. |
-| Animation controls | `PI_STARTUP_LOGO_INTERVAL_MS` controls frame cadence. `PI_STARTUP_LOGO_DURATION_MS` is numeric-only and capped at `10000ms`. |
-| Windows shell discovery | Windows now follows a Claude Code-style Git Bash lookup: derive `bin\bash.exe` from `git.exe`, skip Windows/WSL bash stubs, and allow `LIROAH_GIT_BASH_PATH` override. |
-| Version-check control | `PI_SKIP_VERSION_CHECK=1` disables the startup update notice. `PI_OFFLINE=1` disables all startup network operations. |
-| Changelog discipline | Package changes are recorded under `packages/coding-agent/CHANGELOG.md` in the `[Unreleased]` section. |
+| 项目 | 当前行为 |
+|------|----------|
+| coding agent 基座 | 继承 Pi 的交互式 coding agent、会话模型、工具执行、提示词/模板/skill 加载以及 TUI 组件。 |
+| 工具许可门禁 | 项目本地扩展 `.pi/extensions/tool-permission-gate.ts` 会在 `bash`、`edit`、`write` 工具调用前提示许可，支持允许一次、允许本次会话和拒绝。 |
+| 启动体验 | 交互式启动头部使用移动的 ANSI 像素动画，先从左侧进入，向右退出，最后回到居中静态显示。 |
+| 动画控制 | `PI_STARTUP_LOGO_INTERVAL_MS` 控制帧频；`PI_STARTUP_LOGO_DURATION_MS` 只接受纯数字，并且上限为 `10000ms`。 |
+| Windows shell 发现 | Windows 采用类似 Claude Code 的 Git Bash 查找方式：从 `git.exe` 推导 `bin\bash.exe`，跳过 Windows/WSL 的 bash stub，并允许用 `LIROAH_GIT_BASH_PATH` 覆盖。 |
+| 版本检查控制 | `PI_SKIP_VERSION_CHECK=1` 可关闭启动时的更新提示；`PI_OFFLINE=1` 可关闭所有启动网络操作。 |
+| 更新日志规范 | 包变更记录在 `packages/coding-agent/CHANGELOG.md` 的 `[Unreleased]` 段落下。 |
 
-## Roadmap
+## 路线图
 
-### liroah-api Gateway Adapter
+### liroah-api 网关适配器
 
-The planned gateway direction is to connect the agent runtime to `liroah-api` without leaking gateway-specific details into the core agent workflow.
+规划中的网关方向，是把 agent 运行时接到 `liroah-api`，同时不把网关细节泄漏到核心 agent 工作流里。
 
-Planned concerns:
+计划关注点：
 
-- unified upstream model access
-- gateway-side auth, quota, rate limiting, and cost accounting
-- routing, retry, fallback, and degradation strategy
-- provider differences hidden behind stable agent-facing contracts
-- compatibility with existing Pi model and session behavior
+- 统一的上游模型接入
+- 网关侧认证、配额、限流和成本统计
+- 路由、重试、fallback 和降级策略
+- 将供应商差异封装在稳定的 agent 接口之后
+- 与现有 Pi 模型和会话行为保持兼容
 
-### Harness Engineering
+### Harness 工程
 
-The harness direction focuses on improving coding reliability without changing the base model:
+Harness 方向的重点是在不改变基座模型的前提下提升编码可靠性：
 
-- better context organization for repository-scale tasks
-- safer tool invocation and user approval paths
-- repeatable debugging, testing, and review workflows
-- reusable agent orchestration experiments
-- evaluation fixtures for coding regressions
+- 更好的仓库级任务上下文组织
+- 更安全的工具调用和用户许可路径
+- 可重复的调试、测试和审查流程
+- 可复用的 agent 编排实验
+- 用于编码回归的评测样本
 
-## Quick Start
+## 快速开始
 
-Install dependencies without lifecycle scripts:
+安装依赖，但不执行生命周期脚本：
 
 ```bash
 npm install --ignore-scripts
 ```
 
-Run project checks:
+运行项目检查：
 
 ```bash
 npm run check
 ```
 
-Start the local interactive CLI from this repository:
+从本仓库启动本地交互式 CLI：
 
 ```powershell
 .\pi-test.ps1
 ```
 
-On Unix-like shells:
+在类 Unix shell 中：
 
 ```bash
 ./pi-test.sh
 ```
 
-Disable the startup version check for a single PowerShell launch:
+单次 PowerShell 启动时关闭版本检查：
 
 ```powershell
 $env:PI_SKIP_VERSION_CHECK="1"; .\pi-test.ps1
 ```
 
-## Runtime Controls
+## 运行时控制
 
-| Variable | Purpose |
-|----------|---------|
-| `PI_SKIP_VERSION_CHECK=1` | Skip the startup `Update Available` notice. |
-| `PI_OFFLINE=1` | Disable startup network operations, including update checks and telemetry. |
-| `PI_STARTUP_LOGO_INTERVAL_MS` | Frame cadence for the startup pixel animation. Default is `220ms`; values are clamped to `10..1000ms`. |
-| `PI_STARTUP_LOGO_DURATION_MS` | Total movement duration for the startup animation. Numeric-only, default `3000ms`, max `10000ms`; `0` makes it static. |
-| `LIROAH_GIT_BASH_PATH` | Optional Windows override for Git Bash, for example `D:\Tools\Git\bin\bash.exe`. |
+| 变量 | 作用 |
+|------|------|
+| `PI_SKIP_VERSION_CHECK=1` | 跳过启动时的 `Update Available` 提示。 |
+| `PI_OFFLINE=1` | 关闭启动阶段的网络操作，包括更新检查和遥测。 |
+| `PI_STARTUP_LOGO_INTERVAL_MS` | 启动像素动画的帧间隔。默认 `220ms`，取值会被限制在 `10..1000ms`。 |
+| `PI_STARTUP_LOGO_DURATION_MS` | 启动动画的总移动时长。只接受纯数字，默认 `3000ms`，最大 `10000ms`；`0` 表示静态显示。 |
+| `LIROAH_GIT_BASH_PATH` | Windows 下可选的 Git Bash 覆盖路径，例如 `D:\Tools\Git\bin\bash.exe`。 |
 
-## Windows Bash Discovery
+## Windows Bash 发现
 
-The `bash` tool expects a POSIX-style shell. On Windows, Git Bash is the preferred lightweight shell because it ships with Git for Windows and supports common commands such as `ls`, `grep`, `sed`, `find`, and `mkdir -p`.
+`bash` 工具期望一个 POSIX 风格的 shell。在 Windows 上，优先使用 Git Bash，因为它随 Git for Windows 一起提供，并且支持 `ls`、`grep`、`sed`、`find`、`mkdir -p` 这类常用命令。
 
-Resolution order:
+查找顺序：
 
-1. `shellPath` from settings
+1. 配置中的 `shellPath`
 2. `LIROAH_GIT_BASH_PATH`
-3. Git Bash derived from discovered `git.exe`
-4. default Git for Windows paths under `Program Files`
-5. PATH fallback for Cygwin/MSYS2-style `bash.exe`
+3. 从发现的 `git.exe` 推导 Git Bash
+4. `Program Files` 下的默认 Git for Windows 路径
+5. PATH 兜底查找 Cygwin/MSYS2 风格的 `bash.exe`
 
-PATH fallback skips Windows/WSL stubs such as:
+PATH 兜底会跳过 Windows/WSL 的 stub，例如：
 
 ```text
 C:\Windows\System32\bash.exe
@@ -137,62 +137,62 @@ C:\Windows\Sysnative\bash.exe
 C:\Users\<user>\AppData\Local\Microsoft\WindowsApps\bash.exe
 ```
 
-This avoids accidentally starting a broken or unrelated WSL entrypoint when Git Bash is available elsewhere.
+这样可以避免在别处已经存在 Git Bash 时，却误启动一个损坏的或无关的 WSL 入口。
 
-## Customization Surface
+## 可定制入口
 
-| Surface | Location | Use |
-|---------|----------|-----|
-| Extensions | `.pi/extensions/` | TypeScript hooks, tools, commands, UI, permission gates. |
-| Prompts | `.pi/prompts/` | Reusable prompt templates. |
-| Skills | `.pi/skills/` or `.agents/skills/` | Reusable task workflows and agent instructions. |
-| System prompt override | `.pi/SYSTEM.md` | Replace the default system prompt for this project. |
-| System prompt append | `.pi/APPEND_SYSTEM.md` | Append project-specific behavior without replacing the default prompt. |
-| Context rules | `AGENTS.md` | Durable repository instructions for coding agents. |
+| 入口 | 位置 | 用途 |
+|------|------|------|
+| Extensions | `.pi/extensions/` | TypeScript hooks、工具、命令、UI、权限门禁。 |
+| Prompts | `.pi/prompts/` | 可复用的提示词模板。 |
+| Skills | `.pi/skills/` 或 `.agents/skills/` | 可复用的任务工作流和 agent 指令。 |
+| 系统提示词覆盖 | `.pi/SYSTEM.md` | 替换本项目的默认系统提示词。 |
+| 系统提示词追加 | `.pi/APPEND_SYSTEM.md` | 在不替换默认提示词的前提下追加项目特定行为。 |
+| 上下文规则 | `AGENTS.md` | 给 coding agent 的仓库级持久指令。 |
 
-The local permission gate extension is intentionally project-local. It demonstrates how LiRoah-specific behavior can live in the extension surface before being promoted into core code.
+这个本地权限门禁扩展刻意保持为项目级。它说明 LiRoah 特有行为可以先放在扩展入口里，再决定是否下沉到核心代码。
 
-## Repository Layout
+## 仓库结构
 
-| Package | Role |
-|---------|------|
-| `packages/ai` | Multi-provider model and API compatibility layer inherited from Pi. |
-| `packages/agent` | Agent runtime, message flow, tools, and harness primitives. |
-| `packages/coding-agent` | Interactive CLI, TUI integration, extensions, settings, sessions, and package docs. |
-| `packages/tui` | Terminal UI components and rendering engine. |
+| 包 | 作用 |
+|----|------|
+| `packages/ai` | 继承自 Pi 的多供应商模型与 API 兼容层。 |
+| `packages/agent` | Agent 运行时、消息流、工具和 harness 基础能力。 |
+| `packages/coding-agent` | 交互式 CLI、TUI 集成、扩展、设置、会话和包级文档。 |
+| `packages/tui` | 终端 UI 组件和渲染引擎。 |
 
-Some package names still use upstream Pi naming. Renaming should follow the actual release strategy rather than cosmetic churn.
+部分包名仍然沿用上游 Pi 的命名。重命名应当跟随真实发布策略，而不是做纯粹的表面改动。
 
-## Development
+## 开发
 
-Use these commands from the repository root:
+在仓库根目录使用这些命令：
 
 ```bash
 npm run check
 ./test.sh
 ```
 
-Targeted package tests can be run from `packages/coding-agent`:
+可以在 `packages/coding-agent` 下运行针对性的包测试：
 
 ```bash
 node node_modules/vitest/dist/cli.js --run test/shell-resolution.test.ts
 ```
 
-Rules of thumb:
+基本规则：
 
-- Run `npm run check` after code changes.
-- Use focused tests for changed behavior.
-- Do not run full build or full test unless the task requires it.
-- Keep unrelated generated or local files out of commits.
+- 代码改动后运行 `npm run check`。
+- 变更某个行为时，优先跑针对性测试。
+- 除非任务明确需要，否则不要跑完整 build 或完整 test。
+- 不要把无关的生成文件或本地文件提交进去。
 
-## Upstream
+## 上游
 
-`liroah-ai` is based on Pi Agent Harness. Upstream docs remain useful for understanding the inherited architecture and extension model.
+`liroah-ai` 基于 Pi Agent Harness。上游文档仍然有助于理解继承下来的架构和扩展模型。
 
-- Website: <https://pi.dev>
-- Upstream repository: <https://github.com/earendil-works/pi-mono>
-- Package README: [`packages/coding-agent/README.md`](packages/coding-agent/README.md)
+- 官网：<https://pi.dev>
+- 上游仓库：<https://github.com/earendil-works/pi-mono>
+- 包文档：[`packages/coding-agent/README.md`](packages/coding-agent/README.md)
 
-## License
+## 许可证
 
 MIT
