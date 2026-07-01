@@ -5,7 +5,7 @@
 ### Added
 
 - Added a local tool-permission gate extension that prompts before bash, edit, and write tool calls with allow-once, allow-for-session, and deny decisions.
-- Added a bounded moving startup nyancat animation with `PI_STARTUP_LOGO_DURATION_MS`; `PI_STARTUP_LOGO_INTERVAL_MS` still controls frame cadence, and the logo returns to centered static display when the animation ends.
+- Added a bounded moving startup nyancat animation with numeric-only `PI_STARTUP_LOGO_DURATION_MS`, capped at 10 seconds; `PI_STARTUP_LOGO_INTERVAL_MS` still controls frame cadence, and the logo returns to centered static display when the animation ends.
 
 ## [0.80.2] - 2026-06-23
 

@@ -185,6 +185,7 @@ type StartupLogoVariant = "nyancat" | "liroah";
 const STARTUP_LOGO_VARIANT: StartupLogoVariant = "nyancat";
 const DEFAULT_STARTUP_LOGO_ANIMATION_INTERVAL_MS = 220;
 const DEFAULT_STARTUP_LOGO_ANIMATION_DURATION_MS = 3000;
+const MAX_STARTUP_LOGO_ANIMATION_DURATION_MS = 10000;
 const MIN_STARTUP_LOGO_ANIMATION_INTERVAL_MS = 10;
 const MAX_STARTUP_LOGO_ANIMATION_INTERVAL_MS = 1000;
 const STARTUP_LOGO_ANIMATION_INTERVAL_ENV = "PI_STARTUP_LOGO_INTERVAL_MS";
@@ -200,7 +201,7 @@ function parseStartupLogoDurationMs(rawValue: string | undefined): number {
 		return DEFAULT_STARTUP_LOGO_ANIMATION_DURATION_MS;
 	}
 
-	return Math.floor(durationMs);
+	return Math.min(MAX_STARTUP_LOGO_ANIMATION_DURATION_MS, Math.floor(durationMs));
 }
 
 function getStartupLogoAnimationDurationMs(): number {
