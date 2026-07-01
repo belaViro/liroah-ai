@@ -45,6 +45,7 @@
 |------|----------|
 | coding agent 基座 | 继承 Pi 的交互式 coding agent、会话模型、工具执行、提示词/模板/skill 加载以及 TUI 组件。 |
 | 工具许可门禁 | 项目本地扩展 `.pi/extensions/tool-permission-gate.ts` 会在 `bash`、`edit`、`write` 工具调用前提示许可，支持允许一次、允许本次会话和拒绝。 |
+| 计划模式 | 项目本地扩展 `.pi/extensions/plan-mode/` 提供只读探索模式：禁用 `edit`/`write` 工具，bash 受安全白名单限制，支持从 AI 回复提取 Plan 步骤并逐步执行跟踪。快捷键 `Ctrl+Alt+P` 或命令 `/plan` 切换，可用 `--plan` flag 启动时直接进入。 |
 | 启动体验 | 交互式启动头部使用移动的 ANSI 像素动画，先从左侧进入，向右退出，最后回到居中静态显示。 |
 | 动画控制 | `PI_STARTUP_LOGO_INTERVAL_MS` 控制帧频；`PI_STARTUP_LOGO_DURATION_MS` 只接受纯数字，并且上限为 `10000ms`。 |
 | Windows shell 发现 | Windows 采用类似 Claude Code 的 Git Bash 查找方式：从 `git.exe` 推导 `bin\bash.exe`，跳过 Windows/WSL 的 bash stub，并允许用 `LIROAH_GIT_BASH_PATH` 覆盖。 |
@@ -116,6 +117,7 @@ $env:PI_SKIP_VERSION_CHECK="1"; .\pi-test.ps1
 | `PI_STARTUP_LOGO_INTERVAL_MS` | 启动像素动画的帧间隔。默认 `220ms`，取值会被限制在 `10..1000ms`。 |
 | `PI_STARTUP_LOGO_DURATION_MS` | 启动动画的总移动时长。只接受纯数字，默认 `3000ms`，最大 `10000ms`；`0` 表示静态显示。 |
 | `LIROAH_GIT_BASH_PATH` | Windows 下可选的 Git Bash 覆盖路径，例如 `D:\Tools\Git\bin\bash.exe`。 |
+| `--plan` | CLI flag，启动时直接进入计划模式（只读探索），适用于安全代码审查场景。 |
 
 ## Windows Bash 发现
 
