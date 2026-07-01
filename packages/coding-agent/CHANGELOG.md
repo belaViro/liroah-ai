@@ -4,6 +4,7 @@
 
 ### Added
 
+- Added Claude Code-style Git Bash discovery on Windows by deriving `bin\\bash.exe` from `git.exe` and skipping Windows bash stubs during PATH fallback.
 - Added a local tool-permission gate extension that prompts before bash, edit, and write tool calls with allow-once, allow-for-session, and deny decisions.
 - Added a bounded moving startup nyancat animation with numeric-only `PI_STARTUP_LOGO_DURATION_MS`, capped at 10 seconds; `PI_STARTUP_LOGO_INTERVAL_MS` still controls frame cadence, and the logo returns to centered static display when the animation ends.
 

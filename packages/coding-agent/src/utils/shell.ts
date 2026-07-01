@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
-import { delimiter } from "node:path";
+import { delimiter, win32 } from "node:path";
 import { spawn, spawnSync } from "child_process";
-import { getBinDir } from "../config.ts";
+import { APP_NAME, getBinDir } from "../config.ts";
 
 export interface ShellConfig {
 	shell: string;
@@ -9,35 +9,151 @@ export interface ShellConfig {
 	commandTransport?: "argv" | "stdin";
 }
 
-/**
- * Find bash executable on PATH (cross-platform)
- */
+const GIT_BASH_PATH_ENV = `${APP_NAME.toUpperCase()}_GIT_BASH_PATH`;
+
+function normalizeWin32Path(path: string): string {
+	return win32.normalize(path.replace(/\//g, "\\")).toLowerCase();
+}
+
+function addUniquePath(paths: string[], path: string): void {
+	const normalizedPath = normalizeWin32Path(path);
+	if (!paths.some((candidate) => normalizeWin32Path(candidate) === normalizedPath)) {
+		paths.push(win32.normalize(path));
+	}
+}
+
 function isLegacyWslBashPath(path: string): boolean {
-	const normalized = path.replace(/\//g, "\\").toLowerCase();
+	const normalized = normalizeWin32Path(path);
 	return /^[a-z]:\\windows\\(?:system32|sysnative)\\bash\.exe$/.test(normalized);
+}
+
+function isWindowsAppsBashPath(path: string): boolean {
+	return normalizeWin32Path(path).endsWith("\\appdata\\local\\microsoft\\windowsapps\\bash.exe");
+}
+
+export function isIgnoredWindowsPathBash(path: string): boolean {
+	return isLegacyWslBashPath(path) || isWindowsAppsBashPath(path);
 }
 
 function getBashShellConfig(shell: string): ShellConfig {
 	return isLegacyWslBashPath(shell) ? { shell, args: ["-s"], commandTransport: "stdin" } : { shell, args: ["-c"] };
 }
 
-function findBashOnPath(): string | null {
-	if (process.platform === "win32") {
-		// Windows: Use 'where' and verify file exists (where can return non-existent paths)
-		try {
-			const result = spawnSync("where", ["bash.exe"], {
-				encoding: "utf-8",
-				timeout: 5000,
-				windowsHide: true,
-			});
-			if (result.status === 0 && result.stdout) {
-				const firstMatch = result.stdout.trim().split(/\r?\n/)[0];
-				if (firstMatch && existsSync(firstMatch)) {
-					return firstMatch;
+function isPathInCurrentWorkingDirectory(path: string): boolean {
+	const cwd = normalizeWin32Path(process.cwd());
+	const normalizedPath = normalizeWin32Path(path);
+	const pathDir = normalizeWin32Path(win32.dirname(normalizedPath));
+	return pathDir === cwd || normalizedPath.startsWith(`${cwd}\\`);
+}
+
+function findExecutablesOnPath(executable: string): string[] {
+	const paths: string[] = [];
+	try {
+		const result = spawnSync("where.exe", [executable], {
+			encoding: "utf-8",
+			timeout: 5000,
+			windowsHide: true,
+		});
+		if (result.status === 0 && result.stdout) {
+			for (const candidate of result.stdout.trim().split(/\r?\n/)) {
+				if (candidate && existsSync(candidate) && !isPathInCurrentWorkingDirectory(candidate)) {
+					addUniquePath(paths, candidate);
 				}
 			}
-		} catch {
-			// Ignore errors
+		}
+	} catch {
+		// Ignore errors
+	}
+	return paths;
+}
+
+export function getGitBashCandidatesFromGitPath(gitPath: string): string[] {
+	const gitDir = win32.dirname(gitPath);
+	const normalizedGitDir = normalizeWin32Path(gitDir);
+	const candidates: string[] = [];
+	if (normalizedGitDir.endsWith("\\git\\cmd")) {
+		addUniquePath(candidates, win32.join(gitDir, "..", "bin", "bash.exe"));
+	}
+	if (normalizedGitDir.endsWith("\\git\\mingw64\\bin") || normalizedGitDir.endsWith("\\git\\usr\\bin")) {
+		addUniquePath(candidates, win32.join(gitDir, "..", "..", "bin", "bash.exe"));
+	}
+	addUniquePath(candidates, win32.join(gitDir, "..", "bin", "bash.exe"));
+	addUniquePath(candidates, win32.join(gitDir, "..", "..", "bin", "bash.exe"));
+	addUniquePath(candidates, win32.join(gitDir, "bash.exe"));
+	return candidates;
+}
+
+function findGitExecutables(): string[] {
+	const paths: string[] = [];
+	const programFiles = process.env.ProgramFiles;
+	if (programFiles) {
+		addUniquePath(paths, win32.join(programFiles, "Git", "cmd", "git.exe"));
+	}
+	const programFilesX86 = process.env["ProgramFiles(x86)"];
+	if (programFilesX86) {
+		addUniquePath(paths, win32.join(programFilesX86, "Git", "cmd", "git.exe"));
+	}
+
+	for (const executable of ["git.exe", "git"]) {
+		for (const candidate of findExecutablesOnPath(executable)) {
+			addUniquePath(paths, candidate);
+		}
+	}
+
+	return paths.filter((path) => existsSync(path));
+}
+
+function getConfiguredGitBashPath(): string | undefined {
+	const configuredPath = process.env[GIT_BASH_PATH_ENV]?.trim();
+	if (!configuredPath) {
+		return undefined;
+	}
+	if (existsSync(configuredPath)) {
+		return configuredPath;
+	}
+	throw new Error(`${GIT_BASH_PATH_ENV} points to missing Git Bash path: ${configuredPath}`);
+}
+
+function findGitBash(): { shellPath: string | null; searchedPaths: string[] } {
+	const configuredPath = getConfiguredGitBashPath();
+	if (configuredPath) {
+		return { shellPath: configuredPath, searchedPaths: [configuredPath] };
+	}
+
+	const searchedPaths: string[] = [];
+	for (const gitPath of findGitExecutables()) {
+		for (const candidate of getGitBashCandidatesFromGitPath(gitPath)) {
+			addUniquePath(searchedPaths, candidate);
+		}
+	}
+
+	const programFiles = process.env.ProgramFiles;
+	if (programFiles) {
+		addUniquePath(searchedPaths, win32.join(programFiles, "Git", "bin", "bash.exe"));
+	}
+	const programFilesX86 = process.env["ProgramFiles(x86)"];
+	if (programFilesX86) {
+		addUniquePath(searchedPaths, win32.join(programFilesX86, "Git", "bin", "bash.exe"));
+	}
+
+	for (const candidate of searchedPaths) {
+		if (existsSync(candidate)) {
+			return { shellPath: candidate, searchedPaths };
+		}
+	}
+
+	return { shellPath: null, searchedPaths };
+}
+
+/**
+ * Find bash executable on PATH (cross-platform)
+ */
+function findBashOnPath(): string | null {
+	if (process.platform === "win32") {
+		for (const candidate of findExecutablesOnPath("bash.exe")) {
+			if (!isIgnoredWindowsPathBash(candidate)) {
+				return candidate;
+			}
 		}
 		return null;
 	}
@@ -56,7 +172,6 @@ function findBashOnPath(): string | null {
 	}
 	return null;
 }
-
 /**
  * Resolve shell configuration based on platform and an optional explicit shell path.
  * Resolution order:
@@ -74,24 +189,13 @@ export function getShellConfig(customShellPath?: string): ShellConfig {
 	}
 
 	if (process.platform === "win32") {
-		// 2. Try Git Bash in known locations
-		const paths: string[] = [];
-		const programFiles = process.env.ProgramFiles;
-		if (programFiles) {
-			paths.push(`${programFiles}\\Git\\bin\\bash.exe`);
-		}
-		const programFilesX86 = process.env["ProgramFiles(x86)"];
-		if (programFilesX86) {
-			paths.push(`${programFilesX86}\\Git\\bin\\bash.exe`);
+		// 2. Try Git Bash via git.exe, including non-default Git installation paths.
+		const gitBash = findGitBash();
+		if (gitBash.shellPath) {
+			return getBashShellConfig(gitBash.shellPath);
 		}
 
-		for (const path of paths) {
-			if (existsSync(path)) {
-				return getBashShellConfig(path);
-			}
-		}
-
-		// 3. Fallback: search bash.exe on PATH (Cygwin, MSYS2, WSL, etc.)
+		// 3. Fallback: search bash.exe on PATH, skipping Windows WSL stubs.
 		const bashOnPath = findBashOnPath();
 		if (bashOnPath) {
 			return getBashShellConfig(bashOnPath);
@@ -100,9 +204,9 @@ export function getShellConfig(customShellPath?: string): ShellConfig {
 		throw new Error(
 			`No bash shell found. Options:\n` +
 				`  1. Install Git for Windows: https://git-scm.com/download/win\n` +
-				`  2. Add your bash to PATH (Cygwin, MSYS2, etc.)\n` +
-				"  3. Set shellPath in settings.json\n\n" +
-				`Searched Git Bash in:\n${paths.map((p) => `  ${p}`).join("\n")}`,
+				`  2. Set ${GIT_BASH_PATH_ENV} to your Git Bash path\n` +
+				`  3. Add Git Bash, Cygwin, or MSYS2 bash to PATH\n\n` +
+				`Searched Git Bash in:\n${gitBash.searchedPaths.map((path) => `  ${path}`).join("\n")}`,
 		);
 	}
 

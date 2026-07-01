@@ -1,0 +1,6 @@
+{
+  "name": "plan-mode",
+  "pi": {
+    "extensions": ["./questionnaire.ts", "./index.ts"]
+  }
+}
