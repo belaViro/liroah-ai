@@ -42,10 +42,12 @@ import {
 	ProcessTerminal,
 	Spacer,
 	setKeybindings,
+	sliceByColumn,
 	Text,
 	TruncatedText,
 	TUI,
 	visibleWidth,
+	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import chalk from "chalk";
 import { spawn, spawnSync } from "child_process";
@@ -182,9 +184,28 @@ type StartupLogoVariant = "nyancat" | "liroah";
 
 const STARTUP_LOGO_VARIANT: StartupLogoVariant = "nyancat";
 const DEFAULT_STARTUP_LOGO_ANIMATION_INTERVAL_MS = 220;
+const DEFAULT_STARTUP_LOGO_ANIMATION_DURATION_MS = 3000;
 const MIN_STARTUP_LOGO_ANIMATION_INTERVAL_MS = 10;
 const MAX_STARTUP_LOGO_ANIMATION_INTERVAL_MS = 1000;
 const STARTUP_LOGO_ANIMATION_INTERVAL_ENV = "PI_STARTUP_LOGO_INTERVAL_MS";
+const STARTUP_LOGO_ANIMATION_DURATION_ENV = "PI_STARTUP_LOGO_DURATION_MS";
+
+function parseStartupLogoDurationMs(rawValue: string | undefined): number {
+	if (rawValue === undefined || rawValue.trim() === "") {
+		return DEFAULT_STARTUP_LOGO_ANIMATION_DURATION_MS;
+	}
+
+	const durationMs = Number(rawValue);
+	if (!Number.isFinite(durationMs) || durationMs < 0) {
+		return DEFAULT_STARTUP_LOGO_ANIMATION_DURATION_MS;
+	}
+
+	return Math.floor(durationMs);
+}
+
+function getStartupLogoAnimationDurationMs(): number {
+	return parseStartupLogoDurationMs(process.env[STARTUP_LOGO_ANIMATION_DURATION_ENV]);
+}
 
 function getStartupLogoAnimationIntervalMs(): number {
 	const rawIntervalMs = process.env[STARTUP_LOGO_ANIMATION_INTERVAL_ENV];
@@ -332,6 +353,7 @@ const NYANCAT_LOGO_FRAMES = [
 ] as const;
 
 const NYANCAT_LOGO_WIDTH = Math.max(...NYANCAT_LOGO_FRAMES.flatMap((frame) => frame.map((line) => line.length)));
+const NYANCAT_LOGO_HEIGHT = Math.ceil((NYANCAT_LOGO_FRAMES[0]?.length ?? 0) / 2);
 
 const NYANCAT_PIXEL_COLORS = {
 	".": "#ffffff",
@@ -412,6 +434,24 @@ function centerAnsiLine(line: string, width: number): string {
 	return `${" ".repeat(Math.floor((width - lineWidth) / 2))}${trimmedLine}`;
 }
 
+function padAnsiLine(line: string, width: number): string {
+	return `${line}${" ".repeat(Math.max(0, width - visibleWidth(line)))}`;
+}
+
+function renderMovingAnsiLine(line: string, width: number, offset: number | undefined): string {
+	if (offset === undefined) {
+		return padAnsiLine(sliceByColumn(centerAnsiLine(line, width), 0, width, true), width);
+	}
+
+	const lineWidth = visibleWidth(line);
+	if (offset <= -lineWidth || offset >= width) {
+		return " ".repeat(width);
+	}
+
+	const shiftedLine = offset < 0 ? sliceByColumn(line, -offset, width, true) : `${" ".repeat(offset)}${line}`;
+	return padAnsiLine(sliceByColumn(shiftedLine, 0, width, true), width);
+}
+
 function disposeComponent(component: Component | undefined): void {
 	if (!component || !("dispose" in component)) {
 		return;
@@ -446,9 +486,15 @@ class AnimatedStartupHeader extends Text implements Expandable {
 	private frameIndex = 0;
 	private expanded: boolean;
 	private timer: ReturnType<typeof setInterval> | undefined;
+	private stopTimer: ReturnType<typeof setTimeout> | undefined;
+	private animationStartedAt: number | undefined;
+	private animatedMs = 0;
+	private currentText = "";
 	private readonly getCollapsedText: (frameIndex: number) => string;
 	private readonly getExpandedText: (frameIndex: number) => string;
 	private readonly requestRender: () => void;
+	private readonly renderPaddingX: number;
+	private readonly renderPaddingY: number;
 
 	constructor(
 		getCollapsedText: (frameIndex: number) => string,
@@ -462,6 +508,8 @@ class AnimatedStartupHeader extends Text implements Expandable {
 		this.getCollapsedText = getCollapsedText;
 		this.getExpandedText = getExpandedText;
 		this.requestRender = requestRender;
+		this.renderPaddingX = paddingX;
+		this.renderPaddingY = paddingY;
 		this.expanded = expanded;
 		this.setExpanded(expanded);
 		this.resume();
@@ -472,28 +520,109 @@ class AnimatedStartupHeader extends Text implements Expandable {
 			return;
 		}
 
+		const remainingDurationMs = getStartupLogoAnimationDurationMs() - this.animatedMs;
+		if (remainingDurationMs <= 0) {
+			return;
+		}
+
+		this.animationStartedAt = Date.now();
 		this.timer = setInterval(() => {
 			this.frameIndex = (this.frameIndex + 1) % NYANCAT_LOGO_FRAMES.length;
 			this.setExpanded(this.expanded);
 			this.requestRender();
 		}, getStartupLogoAnimationIntervalMs());
+		this.stopTimer = setTimeout(() => {
+			this.pause();
+			this.setExpanded(this.expanded);
+			this.requestRender();
+		}, remainingDurationMs);
 	}
 
 	setExpanded(expanded: boolean): void {
 		this.expanded = expanded;
-		this.setText(expanded ? this.getExpandedText(this.frameIndex) : this.getCollapsedText(this.frameIndex));
+		this.currentText = expanded ? this.getExpandedText(this.frameIndex) : this.getCollapsedText(this.frameIndex);
+		this.setText(this.currentText);
 	}
 
 	render(width: number): string[] {
-		return super.render(width).map((line) => centerAnsiLine(line, width));
+		if (STARTUP_LOGO_VARIANT !== "nyancat" || this.currentText.trim() === "") {
+			return super.render(width).map((line) => centerAnsiLine(line, width));
+		}
+
+		return this.renderNyanStartupHeader(width);
+	}
+
+	private getAnimationElapsedMs(): number {
+		return this.animatedMs + (this.animationStartedAt === undefined ? 0 : Date.now() - this.animationStartedAt);
+	}
+
+	private getLogoMotionOffset(width: number): number | undefined {
+		const durationMs = getStartupLogoAnimationDurationMs();
+		if (durationMs <= 0) {
+			return undefined;
+		}
+
+		const elapsedMs = this.getAnimationElapsedMs();
+		if (elapsedMs >= durationMs) {
+			return undefined;
+		}
+
+		const progress = Math.max(0, elapsedMs / durationMs);
+		return Math.round(progress * (width + NYANCAT_LOGO_WIDTH) - NYANCAT_LOGO_WIDTH);
+	}
+
+	private renderNyanStartupHeader(width: number): string[] {
+		const textLines = this.currentText.replace(/\t/g, "   ").split("\n");
+		const logoLines = textLines.slice(0, NYANCAT_LOGO_HEIGHT);
+		if (logoLines.length < NYANCAT_LOGO_HEIGHT) {
+			return super.render(width).map((line) => centerAnsiLine(line, width));
+		}
+
+		const paddingX = Math.min(this.renderPaddingX, Math.floor(Math.max(0, width - 1) / 2));
+		const contentWidth = Math.max(1, width - paddingX * 2);
+		const margin = " ".repeat(paddingX);
+		const outputLines: string[] = [];
+		const emptyLine = " ".repeat(width);
+
+		for (let index = 0; index < this.renderPaddingY; index++) {
+			outputLines.push(emptyLine);
+		}
+
+		const motionOffset = this.getLogoMotionOffset(contentWidth);
+		for (const logoLine of logoLines) {
+			outputLines.push(`${margin}${renderMovingAnsiLine(logoLine, contentWidth, motionOffset)}${margin}`);
+		}
+
+		const restText = textLines.slice(NYANCAT_LOGO_HEIGHT).join("\n");
+		for (const line of wrapTextWithAnsi(restText, contentWidth)) {
+			outputLines.push(centerAnsiLine(padAnsiLine(`${margin}${line}${margin}`, width), width));
+		}
+
+		for (let index = 0; index < this.renderPaddingY; index++) {
+			outputLines.push(emptyLine);
+		}
+
+		return outputLines.length > 0 ? outputLines : [""];
 	}
 
 	pause(): void {
+		if (this.animationStartedAt !== undefined) {
+			this.animatedMs += Date.now() - this.animationStartedAt;
+			this.animationStartedAt = undefined;
+		}
 		if (!this.timer) {
+			if (this.stopTimer) {
+				clearTimeout(this.stopTimer);
+				this.stopTimer = undefined;
+			}
 			return;
 		}
 		clearInterval(this.timer);
 		this.timer = undefined;
+		if (this.stopTimer) {
+			clearTimeout(this.stopTimer);
+			this.stopTimer = undefined;
+		}
 	}
 
 	resume(): void {
