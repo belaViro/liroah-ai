@@ -826,6 +826,9 @@ export class InteractiveMode {
 	// Track if editor is in bash mode (text starts with !)
 	private isBashMode = false;
 
+	// Track if plan mode is active (read-only exploration)
+	private planMode = false;
+
 	// Track current bash execution component
 	private bashComponent: BashExecutionComponent | undefined = undefined;
 
@@ -1257,6 +1260,9 @@ export class InteractiveMode {
 		// Initialize extensions first so resources are shown before messages
 		await this.rebindCurrentSession();
 
+		// Sync plan mode state from persisted entries
+		this.updatePlanModeFromEntries();
+
 		// Render initial messages AFTER showing loaded resources
 		this.renderInitialMessages();
 
@@ -1365,6 +1371,8 @@ export class InteractiveMode {
 				const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
 				this.showError(errorMessage);
 			}
+			// Sync plan mode state after each prompt (extension may have toggled it)
+			this.updatePlanModeFromEntries();
 		}
 	}
 
@@ -3219,6 +3227,7 @@ export class InteractiveMode {
 					this.editor.addToHistory?.(text);
 					this.editor.setText("");
 					await this.session.prompt(text);
+					this.updatePlanModeFromEntries();
 				} else {
 					this.queueCompactionMessage(text, "steer");
 				}
@@ -3231,6 +3240,7 @@ export class InteractiveMode {
 				this.editor.addToHistory?.(text);
 				this.editor.setText("");
 				await this.session.prompt(text, { streamingBehavior: "steer" });
+				this.updatePlanModeFromEntries();
 				this.updatePendingMessagesDisplay();
 				this.ui.requestRender();
 				return;
@@ -4076,6 +4086,7 @@ export class InteractiveMode {
 			this.editor.addToHistory?.(text);
 			this.editor.setText("");
 			await this.session.prompt(text, { streamingBehavior: "followUp" });
+			this.updatePlanModeFromEntries();
 			this.updatePendingMessagesDisplay();
 			this.ui.requestRender();
 		}
@@ -4098,11 +4109,39 @@ export class InteractiveMode {
 	private updateEditorBorderColor(): void {
 		if (this.isBashMode) {
 			this.editor.borderColor = theme.getBashModeBorderColor();
+		} else if (this.planMode) {
+			// Deep blue border when in plan mode
+			this.editor.borderColor = (s: string) => theme.fg("borderAccent", s);
 		} else {
 			const level = this.session.thinkingLevel || "off";
 			this.editor.borderColor = theme.getThinkingBorderColor(level);
 		}
 		this.ui.requestRender();
+	}
+
+	/**
+	 * Read plan mode state from the most recent plan-mode session entry.
+	 */
+	private updatePlanModeFromEntries(): void {
+		try {
+			const entries = this.sessionManager.getEntries();
+			for (let i = entries.length - 1; i >= 0; i--) {
+				const entry = entries[i];
+				if (entry.type === "custom" && entry.customType === "plan-mode") {
+					const data = entry.data as { enabled?: boolean } | undefined;
+					this.planMode = data?.enabled ?? false;
+					this.updateEditorBorderColor();
+					return;
+				}
+			}
+			// No plan-mode entry found
+			if (this.planMode) {
+				this.planMode = false;
+				this.updateEditorBorderColor();
+			}
+		} catch {
+			// Ignore errors reading entries
+		}
 	}
 
 	private cycleThinkingLevel(): void {
